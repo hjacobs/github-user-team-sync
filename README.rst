@@ -28,5 +28,6 @@ Usage
 .. code-block:: bash
 
     $ export GITHUB_ACCESS_TOKEN=123456789
+    $ zign token -n team-service
     $ ./sync-github-teams.py mycsvfile.csv https://teams.example.org
 
