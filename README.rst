@@ -11,6 +11,17 @@ To run this script, you will need:
 * OAuth token for the team service (Team service contains mapping from uid to team_id)
 * GitHub personal access token
 
+Prerequisites
+=============
+
+First make sure you have Python 3.4+ installed.
+
+Next install the PyPI dependencies:
+
+.. code-block:: bash
+
+    $ sudo pip3 install -r requirements.txt
+
 Usage
 =====
 
