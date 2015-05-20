@@ -123,7 +123,7 @@ def cli(csv_file, team_service_url, github_access_token, dry_run, no_remove, tea
                 headers=headers)
 
             if user_response.status_code == 200:
-                team_ids = uid_to_teams.get(uid)
+                team_ids = uid_to_teams.get(uid, [])
                 for team_id in team_ids:
                     print(team_id)
                     create_github_team(team_id)
