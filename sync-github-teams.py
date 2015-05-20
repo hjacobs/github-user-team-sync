@@ -13,23 +13,46 @@ from clickclick import Action, info
 
 github_base_url = "https://api.github.com/"
 
+def read_csv_file(csv_file):
+    for line in csv_file:
+        cols = line.strip().split(',')
+        try:
+            email, github_username, uid = cols
+        except:
+            raise click.UsageError('Invalid CSV file format: expected three columns')
+        # just take the last path segment for cases where github.com/... is entered
+        github_username = github_username.split('/')[-1]
+        yield github_username, uid
+
 
 @click.command()
-@click.argument('csv_file')
+@click.argument('csv_file', type=click.File('r'))
 @click.argument('team_service_url')
-@click.option('--github-access-token', envvar='GITHUB_ACCESS_TOKEN')
-@click.option('--dry-run', is_flag=True)
-def cli(csv_file, team_service_url, github_access_token, dry_run):
+@click.option('--github-access-token', envvar='GITHUB_ACCESS_TOKEN', help='GitHub personal access token', metavar='TOKEN')
+@click.option('--dry-run', is_flag=True, help='No-op: do not modify anything, just show what would be done')
+@click.option('--team-service-token-name', default='team-service', help='Zign OAuth token name to use', metavar='NAME')
+def cli(csv_file, team_service_url, github_access_token, dry_run, team_service_token_name):
+    '''
+    Synchronize users and team memberships with GitHub.com.
+
+    First argument must be a CSV file with three columns: first column email, second column GitHub username and last column the user's UID.
+
+    Second argument must be the URL to team service providing team membership information.
+    '''
     # we just assume we got a valid token
-    access_token = zign.api.get_existing_token('team-service')
+    access_token = zign.api.get_existing_token(team_service_token_name)
+    if not access_token:
+        raise click.UsageError('Please use "zign token -n {}" to get an OAuth access token'.format(team_service_token_name))
     access_token = access_token['access_token']
+
+    users = list(read_csv_file(csv_file))
 
     headers = {'Authorization': 'Bearer {}'.format(access_token)}
 
     with Action('Collecting team memberships from team service..') as act:
         r = requests.get(team_service_url + '/teams', headers=headers)
 
-        uid_to_team = {}
+        uid_to_teams = collections.defaultdict(set)
         teams_with_members = set()
 
         for team in r.json():
@@ -37,13 +60,10 @@ def cli(csv_file, team_service_url, github_access_token, dry_run):
             act.progress()
             data = resp.json()
             for member in data['members']:
-                uid_to_team[member] = data['id']
+                uid_to_teams[member].add(data['id'])
                 teams_with_members.add(data['id'])
 
     headers = {"Authorization": "token {}".format(github_access_token)}
-
-    def lookup_team_id(email):
-        return 'stups'
 
     def request(func, url, **kwargs):
         if dry_run:
@@ -95,21 +115,26 @@ def cli(csv_file, team_service_url, github_access_token, dry_run):
 
     users_by_team = collections.defaultdict(set)
 
-    with open(csv_file) as file:
-        for line in file:
-            email, github_username = line.strip().split(',')
-            with Action('Checking GitHub user {}..'.format(github_username)):
-                user_response = requests.get(
-                    github_base_url + "users/{}".format(github_username),
-                    headers=headers)
+    for github_username, uid in users:
+        with Action('Checking GitHub user {}..'.format(github_username)) as act:
+            user_response = requests.get(
+                github_base_url + "users/{}".format(github_username),
+                headers=headers)
 
-                if user_response.status_code == 200:
-                    team_id = lookup_team_id(email)
+            if user_response.status_code == 200:
+                team_ids = uid_to_teams.get(uid)
+                for team_id in team_ids:
+                    print(team_id)
                     create_github_team(team_id)
                     github_teams = get_github_teams()
                     github_team = github_teams.get(team_id)
+                    if not github_team:
+                        act.error('no GitHub team')
+                        continue
                     add_github_team_member(github_team, github_username)
                     users_by_team[github_team['id']].add(github_username)
+            else:
+                act.error('not found')
 
     github_teams = get_github_teams()
     for team_id, github_team in github_teams.items():
@@ -119,6 +144,8 @@ def cli(csv_file, team_service_url, github_access_token, dry_run):
             github_members = get_github_team_members(github_team)
             team_members = users_by_team[github_team['id']]
             members_to_be_removed = github_members - team_members
+            if not members_to_be_removed:
+                info('nothing to do')
             for member in members_to_be_removed:
                 remove_github_team_member(github_team, member)
 
