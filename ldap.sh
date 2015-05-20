@@ -1,4 +1,5 @@
 #/usr/bin/env bash
+# Reads config from ./credentials file
 # Takes standard input in CSV (separated with ",")
 # For each line of input takes first field (email),
 #   then looks up the corresponding uid in a LDAP
@@ -7,6 +8,12 @@
 # name.surname@example.com,whatever,, -> name.surname@example.com,whatever,,,nsurname
 # Example run:
 # $ cat usernames.csv | tail -n +2 | ./ldap.sh
+# Config example:
+# UNAME=[username]
+# PASS=[password]
+# HOST="ldaps://ldap.example"
+# BASE_DN="ou=whatever,dc=example,dc=com"
+
 
 set -eu
 
