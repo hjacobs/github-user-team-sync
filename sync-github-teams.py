@@ -30,8 +30,9 @@ def read_csv_file(csv_file):
 @click.argument('team_service_url')
 @click.option('--github-access-token', envvar='GITHUB_ACCESS_TOKEN', help='GitHub personal access token', metavar='TOKEN')
 @click.option('--dry-run', is_flag=True, help='No-op: do not modify anything, just show what would be done')
+@click.option('--no-remove', is_flag=True, help='Do not remove any team members')
 @click.option('--team-service-token-name', default='team-service', help='Zign OAuth token name to use', metavar='NAME')
-def cli(csv_file, team_service_url, github_access_token, dry_run, team_service_token_name):
+def cli(csv_file, team_service_url, github_access_token, dry_run, no_remove, team_service_token_name):
     '''
     Synchronize users and team memberships with GitHub.com.
 
@@ -136,18 +137,21 @@ def cli(csv_file, team_service_url, github_access_token, dry_run, team_service_t
             else:
                 act.error('not found')
 
-    github_teams = get_github_teams()
-    for team_id, github_team in github_teams.items():
-        if team_id not in teams_with_members:
-            continue
-        with Action('Removing members of team {}..'.format(team_id)):
-            github_members = get_github_team_members(github_team)
-            team_members = users_by_team[github_team['id']]
-            members_to_be_removed = github_members - team_members
-            if not members_to_be_removed:
-                info('nothing to do')
-            for member in members_to_be_removed:
-                remove_github_team_member(github_team, member)
+    if no_remove:
+        info('Not removing any team members')
+    else:
+        github_teams = get_github_teams()
+        for team_id, github_team in github_teams.items():
+            if team_id not in teams_with_members:
+                continue
+            with Action('Removing members of team {}..'.format(team_id)):
+                github_members = get_github_team_members(github_team)
+                team_members = users_by_team[github_team['id']]
+                members_to_be_removed = github_members - team_members
+                if not members_to_be_removed:
+                    info('nothing to do')
+                for member in members_to_be_removed:
+                    remove_github_team_member(github_team, member)
 
 if __name__ == '__main__':
     cli()
