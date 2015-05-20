@@ -13,7 +13,7 @@ from clickclick import Action, info
 
 github_base_url = "https://api.github.com/"
 
-def read_csv_file(csv_file):
+def read_csv_file(csv_file: file):
     for line in csv_file:
         cols = line.strip().split(',')
         try:
@@ -32,7 +32,7 @@ def read_csv_file(csv_file):
 @click.option('--dry-run', is_flag=True, help='No-op: do not modify anything, just show what would be done')
 @click.option('--no-remove', is_flag=True, help='Do not remove any team members')
 @click.option('--team-service-token-name', default='team-service', help='Zign OAuth token name to use', metavar='NAME')
-def cli(csv_file, team_service_url, github_access_token, dry_run, no_remove, team_service_token_name):
+def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remove: bool, team_service_token_name):
     '''
     Synchronize users and team memberships with GitHub.com.
 
@@ -73,7 +73,7 @@ def cli(csv_file, team_service_url, github_access_token, dry_run, no_remove, tea
         else:
             return func(url, **kwargs)
 
-    def create_github_team(name):
+    def create_github_team(name: str):
         description = '{} team'.format(name)
         response = request(requests.post,
             github_base_url + "orgs/zalando/teams",
