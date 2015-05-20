@@ -1,0 +1,2 @@
+stups-zign
+requests
