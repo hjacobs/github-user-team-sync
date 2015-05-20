@@ -14,7 +14,6 @@
 # HOST="ldaps://ldap.example"
 # BASE_DN="ou=whatever,dc=example,dc=com"
 
-
 set -eu
 
 # get config from a file
