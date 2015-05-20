@@ -29,5 +29,6 @@ Usage
 
     $ export GITHUB_ACCESS_TOKEN=123456789
     $ zign token -n team-service
+    # first time users of "zign" need to provide the IAM's token service URL here
     $ ./sync-github-teams.py mycsvfile.csv https://teams.example.org
 
