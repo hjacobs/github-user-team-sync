@@ -13,7 +13,7 @@ from clickclick import Action, info
 
 github_base_url = "https://api.github.com/"
 
-def read_csv_file(csv_file: file):
+def read_csv_file(csv_file):
     for line in csv_file:
         cols = line.strip().split(',')
         try:
@@ -125,7 +125,6 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
             if user_response.status_code == 200:
                 team_ids = uid_to_teams.get(uid, [])
                 for team_id in team_ids:
-                    print(team_id)
                     create_github_team(team_id)
                     github_teams = get_github_teams()
                     github_team = github_teams.get(team_id)
