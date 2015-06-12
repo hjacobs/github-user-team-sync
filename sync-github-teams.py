@@ -13,6 +13,7 @@ from clickclick import Action, info
 
 github_base_url = "https://api.github.com/"
 
+
 def read_csv_file(csv_file):
     for line in csv_file:
         cols = line.strip().split(',')
@@ -75,7 +76,8 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
 
     def create_github_team(name: str):
         description = '{} team'.format(name)
-        response = request(requests.post,
+        response = request(
+            requests.post,
             github_base_url + "orgs/zalando/teams",
             data=json.dumps({
                 "name": name,
@@ -88,7 +90,6 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
         if errors:
             for error in errors:
                 if error.get('code') == 'already_exists':
-                    info('team already exists')
                     return
         response.raise_for_status()
         return response.json()
@@ -147,8 +148,6 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
                 github_members = get_github_team_members(github_team)
                 team_members = users_by_team[github_team['id']]
                 members_to_be_removed = github_members - team_members
-                if not members_to_be_removed:
-                    info('nothing to do')
                 for member in members_to_be_removed:
                     remove_github_team_member(github_team, member)
 

@@ -10,7 +10,11 @@ To run this script, you will need:
 * OAuth token for the team service (Team service contains mapping from uid to team_id)
 * GitHub personal access token
 
-The CSV file can be generated with ldap.sh by using LDAP credentials (LDAP contains mapping from email to uid).
+The CSV file can be generated with ldap.sh by using LDAP credentials (LDAP contains mapping from email to uid):
+
+.. code-block:: bash
+
+    $ cat usernames.csv | tail -n +2 | ./ldap.sh  > usernames-with-uid.csv
 
 Prerequisites
 =============
