@@ -95,6 +95,7 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
         return response.json()
 
     def get_github_teams():
+        # TODO: needs to support pagination
         r = requests.get(github_base_url + 'orgs/zalando/teams', headers=headers)
         teams_by_name = {}
         for team in r.json():
