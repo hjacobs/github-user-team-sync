@@ -53,6 +53,7 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
 
     with Action('Collecting team memberships from team service..') as act:
         r = requests.get(team_service_url + '/teams', headers=headers)
+        r.raise_for_status()
 
         uid_to_teams = collections.defaultdict(set)
         teams_with_members = set()
@@ -61,7 +62,7 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
             resp = requests.get(team_service_url + '/teams/{}'.format(team['id']), headers=headers)
             act.progress()
             data = resp.json()
-            for member in data['members']:
+            for member in data.get('member', []):
                 uid_to_teams[member].add(data['id'])
                 teams_with_members.add(data['id'])
 
