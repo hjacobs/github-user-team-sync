@@ -191,6 +191,8 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
                 team_members = users_by_team[github_team['id']]
                 members_to_be_removed = github_members - team_members
                 for member in members_to_be_removed:
+                    if filter and filter.lower() not in member.lower():
+                        continue
                     remove_github_team_member(github_team, member)
 
 if __name__ == '__main__':
