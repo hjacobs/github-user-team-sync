@@ -121,6 +121,18 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
                 break
         return teams_by_name
 
+    def get_github_people():
+        users = set()
+        page = 1
+        while True:
+            r = requests.get(github_base_url + 'orgs/zalando/members', params={'per_page': 100, 'page': page}, headers=headers)
+            for user in r.json():
+                users.add(user['login'])
+            page += 1
+            if 'next' not in r.headers.get('Link'):
+                break
+        return users
+
     def add_github_team_member(team: dict, username: str):
         info('Adding {} to {}..'.format(username, team['name']))
         r = request(requests.put, github_base_url + 'teams/{}/memberships/{}'.format(team['id'], username), headers=headers)
@@ -160,6 +172,12 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
                     users_by_team[github_team['id']].add(github_username)
             else:
                 act.error('not found')
+
+    known_github_usernames = set([github_username for github_username, _ in users])
+    github_org_members = get_github_people()
+    info('Unknown GitHub usernames:')
+    for username in sorted(github_org_members - known_github_usernames):
+        info('* {}'.format(username))
 
     if no_remove:
         info('Not removing any team members')
