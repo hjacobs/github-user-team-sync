@@ -8,7 +8,7 @@ To run this script, you will need:
 
 * CSV file with three columns: email, GitHub username and uid
 * OAuth token for the team service (Team service contains mapping from uid to team_id)
-* GitHub personal access token
+* GitHub personal access token, you need at least to grant the following scopes in GitHub: "admin:org", "repo", "user"
 
 The CSV file can be generated with ldap.sh by using LDAP credentials (LDAP contains mapping from email to uid):
 
