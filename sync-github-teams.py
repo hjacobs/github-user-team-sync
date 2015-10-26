@@ -11,6 +11,7 @@ from mock import MagicMock
 
 from clickclick import Action, info
 
+ALL_ORGANIZATION_MEMBERS_TEAM = 'All Organization Members'
 
 github_base_url = "https://api.github.com/"
 
@@ -48,6 +49,7 @@ def get_member_teams(team_service_url, access_token):
                 data = resp.json()
                 for member in data.get('member', []):
                     uid_to_teams[member].add(data['id'])
+
     return uid_to_teams
 
 
@@ -178,6 +180,13 @@ def cli(csv_file, team_service_url, github_access_token, dry_run: bool, no_remov
     info('Unknown GitHub usernames:')
     for username in sorted(github_org_members - known_github_usernames):
         info('* {}'.format(username))
+
+    with Action('Creating team for all organization members..'):
+        create_github_team(ALL_ORGANIZATION_MEMBERS_TEAM)
+        github_teams = get_github_teams()
+        github_team = github_teams.get(ALL_ORGANIZATION_MEMBERS_TEAM)
+        for github_username in github_org_members:
+            add_github_team_member(github_team, github_username)
 
     if no_remove:
         info('Not removing any team members')
