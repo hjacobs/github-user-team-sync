@@ -87,10 +87,7 @@ def cli(csv_file, team_service_url, user_service_url, github_access_token, dry_r
     Second argument must be the URL to team service providing team membership information.
     '''
     # we just assume we got a valid token
-    access_token = zign.api.get_existing_token(team_service_token_name)
-    if not access_token:
-        raise click.UsageError('Please use "zign token -n {}" to get an OAuth access token'.format(team_service_token_name))
-    access_token = access_token['access_token']
+    access_token = zign.api.get_token(team_service_token_name, ['uid'])
 
     users = list(read_csv_file(csv_file))
     users = list(filter_employees(users, user_service_url, access_token))
