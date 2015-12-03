@@ -6,15 +6,11 @@ Goal: Sync employees and their team membership to GitHub.com
 
 To run this script, you will need:
 
-* CSV file with three columns: email, GitHub username and uid
+* Google Spreadsheet with the email and GitHub username of each user
+* Google Apps Script ``get-github-usernames.js`` to read the spreadsheet via API
 * OAuth token for the team service (Team service contains mapping from uid to team_id)
 * GitHub personal access token, you need at least to grant the following scopes in GitHub: "admin:org", "repo", "user"
 
-The CSV file can be generated with ldap.sh by using LDAP credentials (LDAP contains mapping from email to uid):
-
-.. code-block:: bash
-
-    $ cat usernames.csv | tail -n +2 | ./ldap.sh  > usernames-with-uid.csv
 
 Prerequisites
 =============
@@ -33,5 +29,7 @@ Usage
 .. code-block:: bash
 
     $ export GITHUB_ACCESS_TOKEN=123456789
-    $ ./sync-github-teams.py usernames-with-uid.csv https://teams.example.org https://users.example.org
+    $ export SCRIPT_ID=123
+    $ export SCRIPT_CREDENTIALS='{...}'
+    $ ./sync-github-teams.py https://teams.example.org https://users.example.org
 

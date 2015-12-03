@@ -1,2 +1,4 @@
 credentials
+scm-source.json
 *.csv
+__pycache__

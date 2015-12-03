@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import click
+import connexion
 import collections
 import httplib2
+import logging
 import os
 
 from apiclient import discovery
@@ -16,7 +17,7 @@ import json
 import requests
 import zign.api
 
-from mock import MagicMock
+from unittest.mock import MagicMock
 
 from clickclick import Action, info
 
@@ -152,24 +153,14 @@ def get_users(user_service_url, access_token):
                 r.raise_for_status()
 
 
-@click.command()
-@click.argument('team_service_url')
-@click.argument('user_service_url')
-@click.option('--github-access-token', envvar='GITHUB_ACCESS_TOKEN', help='GitHub personal access token', metavar='TOKEN')
-@click.option('--dry-run', is_flag=True, help='No-op: do not modify anything, just show what would be done')
-@click.option('--no-remove', is_flag=True, help='Do not remove any team members')
-@click.option('--filter', help='Only process matching GitHub usernames')
-@click.option('--team-service-token-name', default='team-service', help='Zign OAuth token name to use', metavar='NAME')
-def cli(team_service_url, user_service_url, github_access_token, dry_run: bool, no_remove: bool, team_service_token_name, filter: str):
+def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=False, no_remove: bool=False, filter: str=None):
     '''
     Synchronize users and team memberships with GitHub.com.
-
-    First argument must be a CSV file with three columns: first column email, second column GitHub username and last column the user's UID.
 
     Second argument must be the URL to team service providing team membership information.
     '''
     # we just assume we got a valid token
-    access_token = zign.api.get_token(team_service_token_name, ['uid'])
+    access_token = zign.api.get_token('github-user-team-sync', ['uid'])
 
     users = list(get_users(user_service_url, access_token))
 
@@ -308,5 +299,36 @@ def cli(team_service_url, user_service_url, github_access_token, dry_run: bool, 
                         continue
                     remove_github_team_member(github_team, member)
 
+
+def run_update(signum):
+    if uwsgi.is_locked(signum):
+        return
+    uwsgi.lock(signum)
+    try:
+        sync(os.getenv('TEAM_SERVICE_URL'), os.getenv('USER_SERVICE_URL'), os.getenv('GITHUB_ACCESS_TOKEN'), no_remove=True)
+        time.sleep(60)
+    finally:
+        uwsgi.unlock(signum)
+
+
+def get_health():
+    return True
+
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
+app = connexion.App(__name__)
+app.add_api('swagger.yaml')
+# set the WSGI application callable to allow using uWSGI:
+# uwsgi --http :8080 -w app
+application = app.app
+
+try:
+    import uwsgi
+    signum = 1
+    uwsgi.register_signal(signum, "", run_update)
+    uwsgi.add_timer(signum, int(os.getenv('UPDATE_INTERVAL_SECONDS', '300')))
+except Exception as e:
+    print(e)
+
 if __name__ == '__main__':
-    cli()
+    app.run(port=8080)

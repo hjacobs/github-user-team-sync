@@ -1,0 +1,28 @@
+swagger: '2.0'
+info:
+  title: Background App
+  version: "0.1"
+consumes:
+  - application/json
+produces:
+  - application/json
+security:
+  # enable OAuth protection for all REST endpoints
+  # (only active if the HTTP_TOKENINFO_URL environment variable is set)
+  - oauth2: [uid]
+paths:
+  /health:
+    get:
+      operationId: app.get_health
+      security: []
+      responses:
+        200:
+          description: Health OK
+
+securityDefinitions:
+  oauth2:
+    type: oauth2
+    flow: implicit
+    authorizationUrl: https://example.com/oauth2/dialog
+    scopes:
+      uid: Unique identifier of the user accessing the service.
