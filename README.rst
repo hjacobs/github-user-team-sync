@@ -28,8 +28,26 @@ Usage
 
 .. code-block:: bash
 
-    $ export GITHUB_ACCESS_TOKEN=123456789
-    $ export SCRIPT_ID=123
-    $ export SCRIPT_CREDENTIALS='{...}'
-    $ ./sync-github-teams.py https://teams.example.org https://users.example.org
+    $ sudo pip3 install scm-source
+    $ scm-source  # generate scm-source.json
+    $ docker build -t github-user-team-sync .
+    $ docker run -it -e GITHUB_ACCESS_TOKEN=... -e .. github-user-team-sync
 
+The following environment variables need to be set:
+
+``CREDENTIALS_DIR``
+    Directory with OAuth credentials (``client.json`` and ``user.json``).
+``GITHUB_ACCESS_TOKEN``
+    The personal GitHub access token with "admin:org", "repo" and "user" scopes.
+``OAUTH2_ACCESS_TOKEN_URL``
+    OAuth provider URL to create access tokens.
+``SCRIPT_ID``
+    Google Apps script ID of ``get-github-usernames.js``
+``SCRIPT_CREDENTIALS``
+    JSON OAuth credentials of Google API client
+``TEAM_SERVICE_URL``
+    URL of Team Service providing team membership information, e.g. https://teams.example.org
+``UPDATE_INTERVAL_SECONDS``
+    Seconds between syncs (default: 300).
+``USER_SERVICE_URL``
+    URL of User Service to lookup employees by mail, e.g. https://users.example.org
