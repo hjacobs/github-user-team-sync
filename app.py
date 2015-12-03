@@ -122,6 +122,7 @@ def get_member_teams(team_service_url, access_token):
         for team in r.json():
             if team['id']:
                 resp = requests.get(team_service_url + '/teams/{}'.format(team['id']), headers=headers)
+                resp.raise_for_status()
                 act.progress()
                 data = resp.json()
                 for member in data.get('member', []):
@@ -189,6 +190,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
                 "permission": "admin"
                 }),
             headers=headers)
+        response.raise_for_status()
         data = response.json()
         errors = data.get('errors')
         if errors:
@@ -203,6 +205,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
         page = 1
         while True:
             r = requests.get(github_base_url + 'orgs/zalando/teams', params={'per_page': 100, 'page': page}, headers=headers)
+            r.raise_for_status()
             for team in r.json():
                 teams_by_name[team['name']] = team
             page += 1
@@ -215,6 +218,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
         page = 1
         while True:
             r = requests.get(github_base_url + 'orgs/zalando/members', params={'per_page': 100, 'page': page}, headers=headers)
+            r.raise_for_status()
             for user in r.json():
                 users.add(user['login'])
             page += 1
