@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 
-import connexion
 import collections
+import connexion
 import httplib2
+import itertools
+import json
 import logging
 import os
+import requests
+import time
+import zign.api
 
 from apiclient import discovery
+from apiclient import errors
 import oauth2client
 from oauth2client import client
 from oauth2client import tools
-
-from apiclient import errors
-import itertools
-import json
-import requests
-import zign.api
 
 from unittest.mock import MagicMock
 
