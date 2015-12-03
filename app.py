@@ -190,7 +190,6 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
                 "permission": "admin"
                 }),
             headers=headers)
-        response.raise_for_status()
         data = response.json()
         errors = data.get('errors')
         if errors:
@@ -271,8 +270,10 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
                     github_team = github_teams.get(ALL_ORGANIZATION_MEMBERS_TEAM)
                     add_github_team_member(github_team, github_username)
                     users_by_team[github_team['id']].add(github_username)
-            else:
+            elif user_response.status_code == 404:
                 act.error('not found')
+            else:
+                user_response.raise_for_status()
 
     known_github_usernames = set([github_username for github_username, _ in users])
     github_org_members = get_github_people()
