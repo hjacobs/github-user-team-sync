@@ -19,8 +19,6 @@ from oauth2client import tools
 
 from unittest.mock import MagicMock
 
-from clickclick import Action, info
-
 ALL_ORGANIZATION_MEMBERS_TEAM = 'All Organization Members'
 
 github_base_url = "https://api.github.com/"
@@ -62,7 +60,7 @@ def get_credentials():
         flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
         flow.user_agent = APPLICATION_NAME
         credentials = tools.run(flow, store)
-        info('Storing credentials to ' + credential_path)
+        logging.info('Storing credentials to ' + credential_path)
     return credentials
 
 
@@ -113,45 +111,45 @@ def get_github_usernames():
 def get_member_teams(team_service_url, access_token):
     headers = {'Authorization': 'Bearer {}'.format(access_token)}
 
-    with Action('Collecting team memberships from team service..') as act:
-        r = requests.get(team_service_url + '/teams', headers=headers)
-        r.raise_for_status()
+    logging.info('Collecting team memberships from team service..')
+    r = requests.get(team_service_url + '/teams', headers=headers)
+    r.raise_for_status()
 
-        uid_to_teams = collections.defaultdict(set)
+    uid_to_teams = collections.defaultdict(set)
 
-        for team in r.json():
-            if team['id']:
-                resp = requests.get(team_service_url + '/teams/{}'.format(team['id']), headers=headers)
-                resp.raise_for_status()
-                act.progress()
-                data = resp.json()
-                for member in data.get('member', []):
-                    uid_to_teams[member].add(data['id'])
+    for team in r.json():
+        if team['id']:
+            resp = requests.get(team_service_url + '/teams/{}'.format(team['id']), headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            for member in data.get('member', []):
+                uid_to_teams[member].add(data['id'])
 
     return uid_to_teams
 
 
 def get_users(user_service_url, access_token):
-    with Action('Retrieving GitHub usernames from Google Spreadsheet..'):
-        rows = get_github_usernames()
+    logging.info('Retrieving GitHub usernames from Google Spreadsheet..')
+    rows = get_github_usernames()
 
-    info('Found {} GitHub usernames'.format(len(rows)))
+    logging.info('Found {} GitHub usernames'.format(len(rows)))
+
+    headers = {'Authorization': 'Bearer {}'.format(access_token)}
+    r = requests.get(user_service_url + '/employees', headers=headers)
+    r.raise_for_status()
+
+    employees = r.json()
+    employees_by_mail = {e['email']: e for e in employees if 'email' in e}
 
     headers = {'Authorization': 'Bearer {}'.format(access_token)}
     for email, github_username in rows:
         if email and github_username:
             github_username = github_username.split('/')[-1]
-            with Action('Checking {}..'.format(email)):
-                r = requests.get(user_service_url + '/employees', params={'mail': email}, headers=headers)
-                if r.status_code == 200:
-                    found = False
-                    for user in r.json():
-                        if user['email'] == email and user['login']:
-                            found = True
-                            yield github_username, user['login']
-                    if not found:
-                        info('{} not found as employee'.format(email))
-                r.raise_for_status()
+            employee = employees_by_mail.get(email)
+            if employee:
+                yield github_username, employee['login']
+            else:
+                logging.info('{} ({}) not found as employee'.format(email, github_username))
 
 
 def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=False, no_remove: bool=False, filter: str=None):
@@ -168,7 +166,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
     uid_to_teams = get_member_teams(team_service_url, access_token)
 
     teams_with_members = set(itertools.chain(*uid_to_teams.values()))
-    info('Found {} users in {} teams'.format(len(uid_to_teams), len(teams_with_members)))
+    logging.info('Found {} users in {} teams'.format(len(uid_to_teams), len(teams_with_members)))
 
     headers = {"Authorization": "token {}".format(github_access_token)}
 
@@ -226,12 +224,12 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
         return users
 
     def add_github_team_member(team: dict, username: str):
-        info('Adding {} to {}..'.format(username, team['name']))
+        logging.info('Adding {} to {}..'.format(username, team['name']))
         r = request(requests.put, github_base_url + 'teams/{}/memberships/{}'.format(team['id'], username), headers=headers)
         r.raise_for_status()
 
     def remove_github_team_member(team: dict, username: str):
-        info('Removing {} from {}..'.format(username, team['name']))
+        logging.info('Removing {} from {}..'.format(username, team['name']))
         r = request(requests.delete, github_base_url + 'teams/{}/memberships/{}'.format(team['id'], username), headers=headers)
         r.raise_for_status()
 
@@ -246,63 +244,62 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
     for github_username, uid in users:
         if filter and filter.lower() not in github_username.lower():
             continue
-        with Action('Checking GitHub user {}..'.format(github_username)) as act:
-            user_response = requests.get(
-                github_base_url + "users/{}".format(github_username),
-                headers=headers)
+        logging.debug('Checking GitHub user {}..'.format(github_username))
+        user_response = requests.get(
+            github_base_url + "users/{}".format(github_username),
+            headers=headers)
 
-            if user_response.status_code == 200:
-                team_ids = uid_to_teams.get(uid, [])
-                if team_ids:
-                    for team_id in team_ids:
-                        create_github_team(team_id)
-                        github_teams = get_github_teams()
-                        github_team = github_teams.get(team_id)
-                        if not github_team:
-                            act.error('no GitHub team: {}'.format(team_id))
-                            continue
-                        add_github_team_member(github_team, github_username)
-                        users_by_team[github_team['id']].add(github_username)
-                else:
-                    # add to "All Org Members" team
-                    create_github_team(ALL_ORGANIZATION_MEMBERS_TEAM)
+        if user_response.status_code == 200:
+            team_ids = uid_to_teams.get(uid, [])
+            if team_ids:
+                for team_id in team_ids:
+                    create_github_team(team_id)
                     github_teams = get_github_teams()
-                    github_team = github_teams.get(ALL_ORGANIZATION_MEMBERS_TEAM)
+                    github_team = github_teams.get(team_id)
+                    if not github_team:
+                        logging.warn('no GitHub team: {}'.format(team_id))
+                        continue
                     add_github_team_member(github_team, github_username)
                     users_by_team[github_team['id']].add(github_username)
-            elif user_response.status_code == 404:
-                act.error('not found')
             else:
-                user_response.raise_for_status()
+                # add to "All Org Members" team
+                create_github_team(ALL_ORGANIZATION_MEMBERS_TEAM)
+                github_teams = get_github_teams()
+                github_team = github_teams.get(ALL_ORGANIZATION_MEMBERS_TEAM)
+                add_github_team_member(github_team, github_username)
+                users_by_team[github_team['id']].add(github_username)
+        elif user_response.status_code == 404:
+            logging.info('GitHub user {} not found'.format(github_username))
+        else:
+            user_response.raise_for_status()
 
     known_github_usernames = set([github_username for github_username, _ in users])
     github_org_members = get_github_people()
-    info('Unknown GitHub usernames:')
     for username in sorted(github_org_members - known_github_usernames):
-        info('* {}'.format(username))
+        logging.warn('Unknown GitHub username "{}"'.format(username))
 
-    with Action('Creating team for all organization members..'):
-        create_github_team(ALL_ORGANIZATION_MEMBERS_TEAM)
-        github_teams = get_github_teams()
-        github_team = github_teams.get(ALL_ORGANIZATION_MEMBERS_TEAM)
-        for github_username in github_org_members:
-            add_github_team_member(github_team, github_username)
+    logging.info('Creating team for all organization members..')
+    create_github_team(ALL_ORGANIZATION_MEMBERS_TEAM)
+    github_teams = get_github_teams()
+    github_team = github_teams.get(ALL_ORGANIZATION_MEMBERS_TEAM)
+    for github_username in github_org_members:
+        add_github_team_member(github_team, github_username)
 
     if no_remove:
-        info('Not removing any team members')
+        logging.info('Not removing any team members')
     else:
         github_teams = get_github_teams()
         for team_id, github_team in github_teams.items():
             if team_id not in teams_with_members:
                 continue
-            with Action('Removing members of team {}..'.format(team_id)):
-                github_members = get_github_team_members(github_team)
-                team_members = users_by_team[github_team['id']]
-                members_to_be_removed = github_members - team_members
-                for member in members_to_be_removed:
-                    if filter and filter.lower() not in member.lower():
-                        continue
-                    remove_github_team_member(github_team, member)
+            logging.info('Removing members of team {}..'.format(team_id))
+            github_members = get_github_team_members(github_team)
+            team_members = users_by_team[github_team['id']]
+            members_to_be_removed = github_members - team_members
+            for member in members_to_be_removed:
+                if filter and filter.lower() not in member.lower():
+                    continue
+                remove_github_team_member(github_team, member)
 
 
 def run_update(signum):
