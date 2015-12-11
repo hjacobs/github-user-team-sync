@@ -245,7 +245,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
         if filter and filter.lower() not in github_username.lower():
             continue
         logging.debug('Checking GitHub user {}..'.format(github_username))
-        user_response = requests.get(
+        user_response = requests.head(
             github_base_url + "users/{}".format(github_username),
             headers=headers)
 
