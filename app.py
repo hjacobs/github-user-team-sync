@@ -32,6 +32,23 @@ SCOPES = 'https://www.googleapis.com/auth/spreadsheets'
 CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'github-user-team-sync'
 
+CACHE_DIR = '/tmp/github-user-team-sync'
+
+
+def get_cache(key):
+    try:
+        with open(os.path.join(CACHE_DIR, key + '.json')) as fd:
+            data = json.load(fd)
+    except:
+        return None
+    return data
+
+
+def set_cache(key, val):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(os.path.join(CACHE_DIR, key + '.json'), 'w') as fd:
+        json.dump(val, fd)
+
 
 def get_credentials():
     """Gets valid user credentials from storage.
@@ -241,9 +258,9 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
 
     users_by_team = collections.defaultdict(set)
 
-    for github_username, uid in users:
+    def handle_user(github_username):
         if filter and filter.lower() not in github_username.lower():
-            continue
+            return
         logging.debug('Checking GitHub user {}..'.format(github_username))
         user_response = requests.head(
             github_base_url + "users/{}".format(github_username),
@@ -273,6 +290,19 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
         else:
             user_response.raise_for_status()
 
+    last_full_sync = get_cache('last_full_sync')
+    if last_full_sync and last_full_sync > time.time() - int(os.getenv('FULL_SYNC_INTERVAL_SECONDS', '3600')):
+        github_org_members = get_github_people()
+        for github_username, uid in users:
+            # only handle "new" GitHub users
+            if github_username not in github_org_members:
+                handle_user(github_username)
+        return
+
+    # full sync
+    for github_username, uid in users:
+        handle_user(github_username)
+
     known_github_usernames = set([github_username for github_username, _ in users])
     github_org_members = get_github_people()
     for username in sorted(github_org_members - known_github_usernames):
@@ -300,6 +330,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
                 if filter and filter.lower() not in member.lower():
                     continue
                 remove_github_team_member(github_team, member)
+    set_cache('last_full_sync', time.time())
 
 
 def run_update(signum):
