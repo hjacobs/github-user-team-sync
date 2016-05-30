@@ -208,7 +208,7 @@ def sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, 
             for team in r.json():
                 teams_by_name[team['name']] = team
             page += 1
-            if 'next' not in r.headers.get('Link'):
+            if 'next' not in r.headers.get('Link', ''):
                 break
         return teams_by_name
 
@@ -221,7 +221,7 @@ def sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, 
             for user in r.json():
                 users.add(user['login'])
             page += 1
-            if 'next' not in r.headers.get('Link'):
+            if 'next' not in r.headers.get('Link', ''):
                 break
         return users
 
