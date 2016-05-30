@@ -169,22 +169,7 @@ def get_users(user_service_url, access_token):
                 logging.info('{} ({}) not found as employee'.format(email, github_username))
 
 
-def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=False, no_remove: bool=False, filter: str=None):
-    '''
-    Synchronize users and team memberships with GitHub.com.
-
-    Second argument must be the URL to team service providing team membership information.
-    '''
-    # we just assume we got a valid token
-    access_token = zign.api.get_token('github-user-team-sync', ['uid'])
-
-    users = list(get_users(user_service_url, access_token))
-
-    uid_to_teams = get_member_teams(team_service_url, access_token)
-
-    teams_with_members = set(itertools.chain(*uid_to_teams.values()))
-    logging.info('Found {} users in {} teams'.format(len(uid_to_teams), len(teams_with_members)))
-
+def sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, dry_run, no_remove, filter):
     headers = {"Authorization": "token {}".format(github_access_token)}
 
     def request(func, url, **kwargs):
@@ -198,7 +183,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
         description = '{} team'.format(name)
         response = request(
             requests.post,
-            github_base_url + "orgs/zalando/teams",
+            github_base_url + "orgs/{}/teams".format(org),
             data=json.dumps({
                 "name": name,
                 "description": description,
@@ -218,7 +203,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
         teams_by_name = {}
         page = 1
         while True:
-            r = requests.get(github_base_url + 'orgs/zalando/teams', params={'per_page': 100, 'page': page}, headers=headers)
+            r = requests.get(github_base_url + 'orgs/{}/teams'.format(org), params={'per_page': 100, 'page': page}, headers=headers)
             r.raise_for_status()
             for team in r.json():
                 teams_by_name[team['name']] = team
@@ -231,7 +216,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
         users = set()
         page = 1
         while True:
-            r = requests.get(github_base_url + 'orgs/zalando/members', params={'per_page': 100, 'page': page}, headers=headers)
+            r = requests.get(github_base_url + 'orgs/{}/members'.format(org), params={'per_page': 100, 'page': page}, headers=headers)
             r.raise_for_status()
             for user in r.json():
                 users.add(user['login'])
@@ -290,7 +275,7 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
         else:
             user_response.raise_for_status()
 
-    last_full_sync = get_cache('last_full_sync')
+    last_full_sync = get_cache('last_full_sync_{}'.format(org))
     if last_full_sync and last_full_sync > time.time() - int(os.getenv('FULL_SYNC_INTERVAL_SECONDS', '3600')):
         github_org_members = get_github_people()
         for github_username, uid in users:
@@ -330,7 +315,27 @@ def sync(team_service_url, user_service_url, github_access_token, dry_run: bool=
                 if filter and filter.lower() not in member.lower():
                     continue
                 remove_github_team_member(github_team, member)
-    set_cache('last_full_sync', time.time())
+    set_cache('last_full_sync_{}'.format(org), time.time())
+
+
+def sync(orgs, team_service_url, user_service_url, github_access_token, dry_run: bool=False, no_remove: bool=False, filter: str=None):
+    '''
+    Synchronize users and team memberships with GitHub.com.
+
+    Second argument must be the URL to team service providing team membership information.
+    '''
+    # we just assume we got a valid token
+    access_token = zign.api.get_token('github-user-team-sync', ['uid'])
+
+    users = list(get_users(user_service_url, access_token))
+
+    uid_to_teams = get_member_teams(team_service_url, access_token)
+
+    teams_with_members = set(itertools.chain(*uid_to_teams.values()))
+    logging.info('Found {} users in {} teams'.format(len(uid_to_teams), len(teams_with_members)))
+
+    for org in orgs:
+        sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, dry_run, no_remove, filter)
 
 
 def run_update(signum):
@@ -338,7 +343,7 @@ def run_update(signum):
         return
     uwsgi.lock(signum)
     try:
-        sync(os.getenv('TEAM_SERVICE_URL'), os.getenv('USER_SERVICE_URL'), os.getenv('GITHUB_ACCESS_TOKEN'), no_remove=True)
+        sync(os.getenv('GITHUB_ORGANIZATIONS').split(','), os.getenv('TEAM_SERVICE_URL'), os.getenv('USER_SERVICE_URL'), os.getenv('GITHUB_ACCESS_TOKEN'), no_remove=True)
         time.sleep(60)
     finally:
         uwsgi.unlock(signum)

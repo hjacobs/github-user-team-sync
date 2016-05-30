@@ -39,6 +39,8 @@ The following environment variables need to be set:
     Directory with OAuth credentials (``client.json`` and ``user.json``).
 ``GITHUB_ACCESS_TOKEN``
     The personal GitHub access token with "admin:org", "repo" and "user" scopes.
+``GITHUB_ORGANIZATIONS``
+    Comma separated list of GitHub organizations.
 ``OAUTH2_ACCESS_TOKEN_URL``
     OAuth provider URL to create access tokens.
 ``SCRIPT_ID``
