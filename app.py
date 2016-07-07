@@ -131,7 +131,7 @@ def get_member_teams(team_service_url, access_token):
     headers = {'Authorization': 'Bearer {}'.format(access_token)}
 
     logger.info('Collecting team memberships from team service..')
-    r = requests.get(team_service_url + '/teams', headers=headers)
+    r = requests.get(team_service_url + '/api/teams', headers=headers)
     r.raise_for_status()
 
     uid_to_teams = collections.defaultdict(set)
@@ -139,7 +139,7 @@ def get_member_teams(team_service_url, access_token):
     for team in r.json():
         if team['id']:
             try:
-                resp = requests.get(team_service_url + '/teams/{}'.format(team['id']), headers=headers)
+                resp = requests.get(team_service_url + '/api/teams/{}'.format(team['id']), headers=headers)
                 resp.raise_for_status()
             except:
                 logger.exception('Failed to load team {}'.format(team['id']))
@@ -158,7 +158,7 @@ def get_users(user_service_url, access_token):
     logger.info('Found {} GitHub usernames'.format(len(rows)))
 
     headers = {'Authorization': 'Bearer {}'.format(access_token)}
-    r = requests.get(user_service_url + '/employees', headers=headers)
+    r = requests.get(user_service_url + '/api/employees', headers=headers)
     r.raise_for_status()
 
     employees = r.json()
