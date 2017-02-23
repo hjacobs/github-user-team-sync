@@ -1,7 +1,5 @@
 clickclick
-connexion
 requests
 stups-tokens
 stups-zign
-uwsgi
 google-api-python-client

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import collections
-import connexion
 import httplib2
 import itertools
 import json
@@ -344,35 +343,11 @@ def sync(orgs, team_service_url, user_service_url, github_access_token, dry_run:
         sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, dry_run, no_remove, filter)
 
 
-def run_update(signum):
-    if uwsgi.is_locked(signum):
-        return
-    uwsgi.lock(signum)
-    try:
-        sync(os.getenv('GITHUB_ORGANIZATIONS').split(','), os.getenv('TEAM_SERVICE_URL'), os.getenv('USER_SERVICE_URL'), os.getenv('GITHUB_ACCESS_TOKEN'), no_remove=True)
-        time.sleep(60)
-    finally:
-        uwsgi.unlock(signum)
-
-
-def get_health():
-    return True
+def run_update():
+    sync(os.getenv('GITHUB_ORGANIZATIONS').split(','), os.getenv('TEAM_SERVICE_URL'), os.getenv('USER_SERVICE_URL'), os.getenv('GITHUB_ACCESS_TOKEN'), no_remove=True)
 
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
-app = connexion.App(__name__)
-app.add_api('swagger.yaml')
-# set the WSGI application callable to allow using uWSGI:
-# uwsgi --http :8080 -w app
-application = app.app
-
-try:
-    import uwsgi
-    signum = 1
-    uwsgi.register_signal(signum, "", run_update)
-    uwsgi.add_timer(signum, int(os.getenv('UPDATE_INTERVAL_SECONDS', '300')))
-except Exception as e:
-    print(e)
 
 if __name__ == '__main__':
-    app.run(port=8080)
+    run_update()
