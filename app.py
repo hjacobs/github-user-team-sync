@@ -202,6 +202,9 @@ def sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, 
             for error in errors:
                 if error.get('code') == 'already_exists':
                     return
+                if error.get('message') == 'Name has already been taken':
+                    # "already exists"
+                    return
         response.raise_for_status()
         return response.json()
 
