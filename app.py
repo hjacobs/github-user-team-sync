@@ -198,13 +198,13 @@ def sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, 
         data = response.json()
         errors = data.get('errors')
         if errors:
-            logger.error('Failed to create {}: {}'.format(description, errors))
             for error in errors:
                 if error.get('code') == 'already_exists':
                     return
                 if error.get('message') == 'Name has already been taken':
                     # "already exists"
                     return
+            logger.error('Failed to create {}: {}'.format(description, errors))
         response.raise_for_status()
         return response.json()
 
