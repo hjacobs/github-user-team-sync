@@ -346,7 +346,7 @@ def sync(orgs, team_service_url, user_service_url, github_access_token, dry_run:
     # we just assume we got a valid token
     access_token = zign.api.get_token('github-user-team-sync', ['uid'])
 
-    users = list(get_users(user_service_url, access_token))
+    users = list(set(get_users(user_service_url, access_token)))
 
     uid_to_teams = get_member_teams(team_service_url, access_token)
 
