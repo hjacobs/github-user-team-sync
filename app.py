@@ -161,13 +161,19 @@ def get_users(user_service_url, access_token):
     r.raise_for_status()
 
     employees = r.json()
+    active_employees = set()
+
+    for employee in employees:
+        if not employee.get('inactive'):
+            active_employees.add(employee['login'])
+
     employees_by_mail = {e['email']: e for e in employees if 'email' in e}
 
     for email, github_username in rows:
         if email and github_username:
             github_username = github_username.split('/')[-1]
             employee = employees_by_mail.get(email)
-            if employee:
+            if employee and employee['login'] in active_employees:
                 yield github_username, employee['login']
             else:
                 logger.info('{} ({}) not found as employee'.format(email, github_username))
@@ -180,8 +186,9 @@ def get_users(user_service_url, access_token):
     logger.info('Found {} users with GitHub username'.format(len(handles)))
 
     for uid, github_usernames in handles.items():
-        for username in github_usernames:
-            yield username, uid
+        if uid in active_employees:
+            for username in github_usernames:
+                yield username, uid
 
 
 def sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, dry_run, no_remove, filter):
