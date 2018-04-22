@@ -181,7 +181,7 @@ def get_users(user_service_url, access_token):
 
     for uid, github_usernames in handles.items():
         for username in github_usernames:
-            yield uid, username
+            yield username, uid
 
 
 def sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, dry_run, no_remove, filter):
