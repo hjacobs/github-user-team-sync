@@ -354,6 +354,7 @@ def sync(orgs, team_service_url, user_service_url, github_access_token, dry_run:
     access_token = zign.api.get_token('github-user-team-sync', ['uid'])
 
     users = list(set(get_users(user_service_url, access_token)))
+    logger.info('Found {} active GitHub user mappings'.format(len(users)))
 
     uid_to_teams = get_member_teams(team_service_url, access_token)
 
@@ -361,7 +362,11 @@ def sync(orgs, team_service_url, user_service_url, github_access_token, dry_run:
     logger.info('Found {} users in {} teams'.format(len(uid_to_teams), len(teams_with_members)))
 
     for org in orgs:
-        sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, dry_run, no_remove, filter)
+        logger.info('Syncing {} organization..'.format(org))
+        try:
+            sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, dry_run, no_remove, filter)
+        except Exception as e:
+            logger.exception('Failed to sync %s: %s', org, e)
 
 
 def run_update():
