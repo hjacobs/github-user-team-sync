@@ -2,4 +2,3 @@ clickclick
 requests
 stups-tokens
 stups-zign
-google-api-python-client

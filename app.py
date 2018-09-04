@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import collections
-import httplib2
 import itertools
 import json
 import logging
@@ -9,12 +8,6 @@ import os
 import requests
 import time
 import zign.api
-
-from apiclient import discovery
-from apiclient import errors
-import oauth2client
-from oauth2client import client
-from oauth2client import tools
 
 from unittest.mock import MagicMock
 
@@ -29,8 +22,6 @@ adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
 sess.mount('https://', adapter)
 requests = sess
 
-SCOPES = 'https://www.googleapis.com/auth/spreadsheets'
-CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'github-user-team-sync'
 
 CACHE_DIR = '/tmp/github-user-team-sync'
@@ -49,81 +40,6 @@ def set_cache(key, val):
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(os.path.join(CACHE_DIR, key + '.json'), 'w') as fd:
         json.dump(val, fd)
-
-
-def get_credentials():
-    """Gets valid user credentials from storage.
-
-    If nothing has been stored, or if the stored credentials are invalid,
-    the OAuth2 flow is completed to obtain the new credentials.
-
-    Returns:
-        Credentials, the obtained credential.
-    """
-    json_data = os.getenv('SCRIPT_CREDENTIALS')
-    if json_data:
-        credentials = client.Credentials.new_from_json(json_data)
-        return credentials
-
-    home_dir = os.path.expanduser('~')
-    credential_dir = os.path.join(home_dir, '.credentials')
-    if not os.path.exists(credential_dir):
-        os.makedirs(credential_dir)
-    credential_path = os.path.join(credential_dir,
-                                   'script-get-github-usernames.json')
-
-    store = oauth2client.file.Storage(credential_path)
-    credentials = store.get()
-    if not credentials or credentials.invalid:
-        flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
-        flow.user_agent = APPLICATION_NAME
-        credentials = tools.run(flow, store)
-        logger.info('Storing credentials to ' + credential_path)
-    return credentials
-
-
-def get_github_usernames():
-    SCRIPT_ID = os.getenv('SCRIPT_ID')
-
-    # Authorize and create a service object.
-    credentials = get_credentials()
-    http = credentials.authorize(httplib2.Http())
-    service = discovery.build('script', 'v1', http=http)
-
-    # Create an execution request object.
-    request = {"function": "getGitHubUsernames"}
-
-    try:
-        # Make the API request.
-        response = service.scripts().run(body=request,
-                                         scriptId=SCRIPT_ID).execute()
-
-        if 'error' in response:
-            # The API executed, but the script returned an error.
-
-            # Extract the first (and only) set of error details. The values of
-            # this object are the script's 'errorMessage' and 'errorType', and
-            # an list of stack trace elements.
-            error = response['error']['details'][0]
-            error("Script error message: {0}".format(error['errorMessage']))
-
-            if 'scriptStackTraceElements' in error:
-                # There may not be a stacktrace if the script didn't start
-                # executing.
-                error("Script error stacktrace:")
-                for trace in error['scriptStackTraceElements']:
-                    error("\t{0}: {1}".format(trace['function'],
-                          trace['lineNumber']))
-        else:
-            # The structure of the result will depend upon what the Apps Script
-            # function returns. Here, the function returns an Apps Script Object
-            results = response['response'].get('result', {})
-            # drop the first (header) row
-            return results[1:]
-
-    except errors.HttpError as e:
-        # The API encountered a problem before the script started executing.
-        error(e.content)
 
 
 def get_member_teams(team_service_url, access_token):
@@ -151,11 +67,6 @@ def get_member_teams(team_service_url, access_token):
 
 
 def get_users(user_service_url, access_token):
-    logger.info('Retrieving GitHub usernames from Google Spreadsheet..')
-    rows = get_github_usernames()
-
-    logger.info('Found {} GitHub usernames'.format(len(rows)))
-
     headers = {'Authorization': 'Bearer {}'.format(access_token)}
     r = requests.get(user_service_url + '/api/employees', headers=headers)
     r.raise_for_status()
@@ -167,16 +78,7 @@ def get_users(user_service_url, access_token):
         if not employee.get('inactive'):
             active_employees.add(employee['login'])
 
-    employees_by_mail = {e['email']: e for e in employees if 'email' in e}
-
-    for email, github_username in rows:
-        if email and github_username:
-            github_username = github_username.split('/')[-1]
-            employee = employees_by_mail.get(email)
-            if employee and employee['login'] in active_employees:
-                yield github_username, employee['login']
-            else:
-                logger.info('{} ({}) not found as employee'.format(email, github_username))
+    logger.info('Found {} active employees'.format(len(active_employees)))
 
     logger.info('Retrieving GitHub usernames from Users API..')
     r = requests.get(user_service_url + '/api/employees?account=github', headers=headers)
@@ -323,7 +225,8 @@ def sync_org(org, github_access_token, users, uid_to_teams, teams_with_members, 
     create_github_team(ALL_ORGANIZATION_MEMBERS_TEAM)
     github_teams = get_github_teams()
     github_team = github_teams.get(ALL_ORGANIZATION_MEMBERS_TEAM)
-    for github_username in github_org_members:
+    # only add known (active) users to the All Org team
+    for github_username in known_github_usernames:
         add_github_team_member(github_team, github_username)
 
     if no_remove:
